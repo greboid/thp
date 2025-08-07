@@ -1,9 +1,9 @@
-# TSP - Tailscale Proxy
+# THP - Tailscale Proxy
 
 A simple HTTP reverse proxy that runs on Tailscale, allowing you to securely expose internal services, it uses Tailscale's 
 build in LetsEncrypt support to add certificates and adds tailscale auth headers.
 
-This project was heavily inspired by [tsp](https://github.com/csmith/tsp) by @csmith and I did initially copy the code and I used the same flags, to make switching easier.
+This project was heavily inspired by [tsp](https://github.com/csmith/tsp) and I did initially copy the code and I used the same flags, to make switching easier.
 
 ## Command Line Flags
 
