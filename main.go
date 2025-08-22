@@ -26,7 +26,6 @@ var (
 	upstream           = flag.String("upstream", "", "URL of the upstream service to proxy HTTP requests to (e.g., http://localhost:8080)")
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
 	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
-	addAuthHeaders     = flag.Bool("authheaders", true, "Whether to add tailscale auth headers")
 )
 
 type httpHandler struct {
@@ -63,15 +62,6 @@ func main() {
 		_ = serv.Close()
 	}(&serv)
 
-	var lc *local.Client
-	if *addAuthHeaders {
-		lc, err = serv.LocalClient()
-		if err != nil {
-			slog.Error("Error getting the local client", "error", err)
-			os.Exit(1)
-		}
-	}
-
 	var listener net.Listener
 	if *funnel {
 		listener, err = serv.ListenFunnel("tcp", fmt.Sprintf(":%d", *tailscalePort))
@@ -94,8 +84,6 @@ func main() {
 
 	handler := &httpHandler{
 		reverseProxy:   reverseProxy,
-		lc:             lc,
-		addAuthHeaders: *addAuthHeaders,
 	}
 
 	go func() {
@@ -114,17 +102,5 @@ func main() {
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("HTTP request received", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
-
-	if h.addAuthHeaders && h.lc != nil {
-		whois, err := h.lc.WhoIs(r.Context(), r.RemoteAddr)
-		if err != nil {
-			slog.Warn("Failed to get tailscale user info", "error", err)
-		} else {
-			r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
-			r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
-			r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
-		}
-	}
-
 	h.reverseProxy.ServeHTTP(w, r)
 }
