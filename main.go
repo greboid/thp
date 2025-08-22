@@ -25,6 +25,7 @@ var (
 	tailscaleAuthKey   = flag.String("tailscale-auth-key", "", "tailscale auth key for connecting to the network. If blank, interactive auth will be required")
 	upstream           = flag.String("upstream", "", "URL of the upstream service to proxy HTTP requests to (e.g., http://localhost:8080)")
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
+	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
 	addAuthHeaders     = flag.Bool("authheaders", true, "Whether to add tailscale auth headers")
 )
 
@@ -72,7 +73,9 @@ func main() {
 	}
 
 	var listener net.Listener
-	if *useSSL {
+	if *funnel {
+		listener, err = serv.ListenFunnel("tcp", fmt.Sprintf(":%d", *tailscalePort))
+	} else if *useSSL {
 		listener, err = serv.ListenTLS("tcp", fmt.Sprintf(":%d", *tailscalePort))
 	} else {
 		listener, err = serv.Listen("tcp", fmt.Sprintf(":%d", *tailscalePort))
