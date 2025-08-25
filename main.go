@@ -14,7 +14,6 @@ import (
 
 	"github.com/csmith/envflag/v2"
 	"github.com/csmith/slogflags"
-	"tailscale.com/client/local"
 	"tailscale.com/tsnet"
 )
 
@@ -27,13 +26,6 @@ var (
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
 	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
 )
-
-type httpHandler struct {
-	reverseProxy   *httputil.ReverseProxy
-	lc             *local.Client
-	addAuthHeaders bool
-	logger         *slog.Logger
-}
 
 func main() {
 	envflag.Parse()
@@ -62,6 +54,12 @@ func main() {
 		_ = serv.Close()
 	}(&serv)
 
+	lc, err := serv.LocalClient()
+	if err != nil {
+		slog.Error("Error getting the local client", "error", err)
+		os.Exit(1)
+	}
+
 	var listener net.Listener
 	if *funnel {
 		listener, err = serv.ListenFunnel("tcp", fmt.Sprintf(":%d", *tailscalePort))
@@ -79,15 +77,28 @@ func main() {
 	}(listener)
 
 	reverseProxy := httputil.NewSingleHostReverseProxy(upstreamURL)
+	d := reverseProxy.Director
+	reverseProxy.Director = func(r *http.Request) {
+		d(r)
+		whois, err := lc.WhoIs(r.Context(), r.RemoteAddr)
+		if err == nil {
+			slog.Info("Authing", "Auth", whois.UserProfile.LoginName)
+			r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
+			r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
+			r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
+			slog.Debug("Authing", "user", whois.UserProfile.LoginName)
+		} else {
+			slog.Info("Not authing")
+		}
+		r.Host = ""
+	}
 
 	slog.Info("Listening for incoming connections", "hostname", *tailscaleHost, "port", *tailscalePort)
 
-	handler := &httpHandler{
-		reverseProxy:   reverseProxy,
-	}
-
+	mux := http.NewServeMux()
+	mux.Handle("/", reverseProxy)
 	go func() {
-		err := http.Serve(listener, handler)
+		err := http.Serve(listener, mux)
 		if err != nil {
 			slog.Error("HTTP server error", "error", err)
 		}
@@ -98,9 +109,4 @@ func main() {
 	<-quit
 
 	slog.Info("Shutting down...")
-}
-
-func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Debug("HTTP request received", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
-	h.reverseProxy.ServeHTTP(w, r)
 }
