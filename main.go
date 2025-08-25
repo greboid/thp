@@ -82,15 +82,11 @@ func main() {
 		d(r)
 		whois, err := lc.WhoIs(r.Context(), r.RemoteAddr)
 		if err == nil {
-			slog.Info("Authing", "Auth", whois.UserProfile.LoginName)
 			r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
 			r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
 			r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
 			slog.Debug("Authing", "user", whois.UserProfile.LoginName)
-		} else {
-			slog.Info("Not authing")
 		}
-		r.Host = ""
 	}
 
 	slog.Info("Listening for incoming connections", "hostname", *tailscaleHost, "port", *tailscalePort)
