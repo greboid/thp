@@ -56,7 +56,7 @@ jobs:
       id: build-image
       uses: redhat-actions/buildah-build@v2
       with:
-        dockerfiles: ${{ inputs.dockerfile }}
+        dockerfiles: Dockerfile
         image: ${{ github.repository }}
         archs: amd64 arm64
         tags: ${{ steps.tags.outputs.tags }}
