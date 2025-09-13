@@ -38,7 +38,7 @@ jobs:
 
     - name: Generate tags
       id: tags
-      uses: greboid/docker-tags-action@v6
+      uses: greboid/docker-tags-action@v6.0.4
       with:
         separator: ' '
         fullname: 'false'
@@ -59,6 +59,6 @@ jobs:
         image: ${{ github.repository }}
         archs: amd64 arm64
         tags: ${{ steps.tags.outputs.tags }}
-      extra-args: >
-        --timestamp
-        0
+        extra-args: >
+          --timestamp
+          0
