@@ -34,9 +34,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v5
 
-    - name: QEMU
-      uses: docker/setup-qemu-action@v3
-
     - name: Generate tags
       id: tags
       uses: greboid/docker-tags-action@v6.0.4
