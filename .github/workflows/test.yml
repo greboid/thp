@@ -55,7 +55,7 @@ jobs:
       with:
         dockerfiles: Dockerfile
         image: ${{ github.repository }}
-        archs: amd64,aarch64
+        platforms: linux/amd64, linux/aarch64
         tags: ${{ steps.tags.outputs.tags }}
         extra-args: >
           --timestamp
