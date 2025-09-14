@@ -1,15 +1,9 @@
-ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-ARG TARGETOS
-ARG TARGETARCH
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/golang:1.25.0 AS build
 
-ENV TARGETPLATFORM=${TARGETPLATFORM}
-ENV BUILDPLATFORM=${BUILDPLATFORM}
-ENV TARGETOS=${TARGETOS}
-ENV TARGETARCH=${TARGETARCH}
-
+ARG TARGETOS
+ARG TARGETARCH
 ENV CGO_ENABLED=0
 ENV GOARCH=${TARGETARCH}
 ENV GOOS=${TARGETOS}
@@ -17,6 +11,7 @@ ENV GOOS=${TARGETOS}
 WORKDIR /src
 COPY . .
 
+RUN echo ${GOOS} ${GOARCH}
 RUN go build -a -ldflags="-s -w" -ldflags '-extldflags "-static"' -trimpath -ldflags=-buildid= -o main .
 RUN mkdir -p /mounts/config;
 
