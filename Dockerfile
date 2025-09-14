@@ -1,6 +1,6 @@
 ARG BUILDPLATFORM
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/golang:1.25.0 AS build
+FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/golang:1.25.1 AS build
 
 ARG TARGETOS
 ARG TARGETARCH
