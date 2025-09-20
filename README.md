@@ -29,18 +29,18 @@ When `--authheaders` is enabled, TSP will add the following headers to proxied r
 
 ```bash
 # Basic usage
-./tsp --upstream=http://localhost:8080
+./thp --upstream=http://localhost:8080
 
 # With auth key and hostname specified
-./tsp --upstream=http://localhost:3000 --tailscale-hostname=myapp --tailscale-auth-key=tskey-auth-xxxxx
+./thp --upstream=http://localhost:3000 --tailscale-hostname=myapp --tailscale-auth-key=tskey-auth-xxxxx
 ```
 
 ## Docker Compose Example
 
 ```yaml
 services:
-  tsp:
-    image: ghcr.io/greboid/tsp:latest
+  thp:
+    image: ghcr.io/greboid/thp:latest
     environment:
       - UPSTREAM=http://app:8080
       - TAILSCALE_HOSTNAME=myapp
