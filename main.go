@@ -25,6 +25,7 @@ var (
 	upstream           = flag.String("upstream", "", "URL of the upstream service to proxy HTTP requests to (e.g., http://localhost:8080)")
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
 	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
+	authHeaders        = flag.Bool("authheaders", true, "Whether to add Tailscale auth headers")
 )
 
 func main() {
@@ -77,15 +78,18 @@ func main() {
 	}(listener)
 
 	reverseProxy := httputil.NewSingleHostReverseProxy(upstreamURL)
-	d := reverseProxy.Director
-	reverseProxy.Director = func(r *http.Request) {
-		d(r)
-		whois, err := lc.WhoIs(r.Context(), r.RemoteAddr)
-		if err == nil {
-			r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
-			r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
-			r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
-			slog.Debug("Authing", "user", whois.UserProfile.LoginName)
+
+	if *authHeaders {
+		d := reverseProxy.Director
+		reverseProxy.Director = func(r *http.Request) {
+			d(r)
+			whois, err := lc.WhoIs(r.Context(), r.RemoteAddr)
+			if err == nil {
+				r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
+				r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
+				r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
+				slog.Debug("Authing", "user", whois.UserProfile.LoginName)
+			}
 		}
 	}
 
