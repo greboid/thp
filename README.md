@@ -16,6 +16,8 @@ This project was heavily inspired by [tsp](https://github.com/csmith/tsp) and I 
 | `--upstream`             | `UPSTREAM`             | (required) | URL of the upstream service to proxy HTTP requests to (e.g., `http://localhost:8080`)         |
 | `--ssl`                  | `SSL`                  | `true`     | Whether to enable Tailscale SSL                                                               |
 | `--authheaders`          | `AUTHHEADERS`          | `true`     | Whether to add Tailscale auth headers                                                         |
+| `--redirect`             | `REDIRECT`             | `false`    | Whether to redirect plain HTTP requests to HTTPS                                              |
+| `--redirect-port`        | `REDIRECT_PORT`        | `80`       | The port to listen on for plain HTTP requests if `redirect` is true                           |                                                 
 
 ## Authentication Headers
 
