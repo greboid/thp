@@ -15,7 +15,7 @@ RUN echo ${GOOS} ${GOARCH}
 RUN go build -a -ldflags="-s -w" -ldflags '-extldflags "-static"' -trimpath -ldflags=-buildid= -o main .
 RUN mkdir -p /mounts/config;
 
-FROM ghcr.io/greboid/dockerbase/nonroot:1.20251204.0
+FROM ghcr.io/greboid/dockerbase/nonroot:1.20251213.0
 COPY --from=build /src/main /thp
 COPY --from=build --chown=65532:65532 /mounts /
 ENTRYPOINT ["/thp", "--tailscale-config-dir=/config"]
