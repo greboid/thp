@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/csmith/envflag/v2"
@@ -26,6 +28,8 @@ var (
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
 	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
 	authHeaders        = flag.Bool("authheaders", true, "Whether to add Tailscale auth headers")
+	redirect           = flag.Bool("redirect", false, "Whether to redirect HTTP to HTTPS")
+	redirectPort       = flag.Int("redirect-port", 80, "Port to listen on for http requests to redirect")
 )
 
 func main() {
@@ -94,6 +98,28 @@ func main() {
 	}
 
 	slog.Info("Listening for incoming connections", "hostname", *tailscaleHost, "port", *tailscalePort)
+
+	if *redirect {
+		redirectListener, err := serv.Listen("tcp", fmt.Sprintf(":%d", *redirectPort))
+		if err != nil {
+			slog.Error("Error listening on redirect", "port", *redirectPort, "error", err)
+			os.Exit(1)
+		}
+
+		go func() {
+			status, err := lc.StatusWithoutPeers(context.Background())
+			if err != nil {
+				slog.Error("Error getting tailscale status", "error", err)
+				return
+			}
+
+			target := fmt.Sprintf("https://%s:%d/", strings.TrimSuffix(status.Self.DNSName, "."), *tailscalePort)
+			slog.Info("Listening for incoming http connections", "hostname", *tailscaleHost, "port", *tailscalePort, "target", target)
+			http.Serve(redirectListener, http.RedirectHandler(target, http.StatusFound))
+		}()
+
+		defer redirectListener.Close()
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/", reverseProxy)
