@@ -18,4 +18,5 @@ RUN mkdir -p /mounts/config;
 FROM ghcr.io/greboid/dockerbase/nonroot:1.20251213.0
 COPY --from=build /src/main /thp
 COPY --from=build --chown=65532:65532 /mounts /
+VOLUME /config
 ENTRYPOINT ["/thp", "--tailscale-config-dir=/config"]
