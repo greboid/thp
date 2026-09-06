@@ -1,5 +1,5 @@
 name: Test and Build
-
+enable-openid-connect: true
 on:
   workflow_dispatch:
   push:
