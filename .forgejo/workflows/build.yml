@@ -20,6 +20,7 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/toolkit/git-checkout@master
+      - uses: actions/toolkit/docker-login@master
         with:
           audience: u:1:e73b80f5-854e-42da-a7c4-efdc22b5b2de
           ghcr: ${{ secrets.GHCR_TOKEN }}
