@@ -20,4 +20,28 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/toolkit/git-checkout@master
-      - uses: actions/toolkit/docker-push@master
+        with:
+          audience: u:1:e7c48982-76d3-4d0e-8dd3-95729d0eb9c5
+          ghcr: ${{ secrets.MIRROR_TOKEN }}
+      - name: Build and push image
+        uses: actions/toolkit/docker-push@master
+        with:
+          file: Containerfile
+          ghcr: true
+  release:
+    if: github.ref_type == 'tag'
+    runs-on: alpine
+    needs:
+      - test
+      - container
+    steps:
+      - uses: actions/toolkit/git-checkout@master
+      - uses: actions/toolkit/docker-login@master
+        with:
+          audience: u:1:e7c48982-76d3-4d0e-8dd3-95729d0eb9c5
+          ghcr: ${{ secrets.MIRROR_TOKEN }}
+      - name: Build and push image
+        uses: actions/toolkit/docker-push@master
+        with:
+          file: Containerfile
+          ghcr: true
