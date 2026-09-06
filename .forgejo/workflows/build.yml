@@ -22,11 +22,10 @@ jobs:
       - uses: actions/toolkit/git-checkout@master
         with:
           audience: u:1:e7c48982-76d3-4d0e-8dd3-95729d0eb9c5
-          ghcr: ${{ secrets.MIRROR_TOKEN }}
+          ghcr: ${{ secrets.GHCR_TOKEN }}
       - name: Build and push image
         uses: actions/toolkit/docker-push@master
         with:
-          file: Containerfile
           ghcr: true
   release:
     if: github.ref_type == 'tag'
@@ -39,9 +38,8 @@ jobs:
       - uses: actions/toolkit/docker-login@master
         with:
           audience: u:1:e7c48982-76d3-4d0e-8dd3-95729d0eb9c5
-          ghcr: ${{ secrets.MIRROR_TOKEN }}
+          ghcr: ${{ secrets.GHCR_TOKEN }}
       - name: Build and push image
         uses: actions/toolkit/docker-push@master
         with:
-          file: Containerfile
           ghcr: true
