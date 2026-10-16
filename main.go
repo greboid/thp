@@ -16,6 +16,7 @@ import (
 
 	"github.com/csmith/envflag/v2"
 	"github.com/csmith/slogflags"
+	"tailscale.com/client/local"
 	"tailscale.com/tsnet"
 )
 
@@ -31,6 +32,26 @@ var (
 	redirect           = flag.Bool("redirect", false, "Whether to redirect HTTP to HTTPS")
 	redirectPort       = flag.Int("redirect-port", 80, "Port to listen on for http requests to redirect")
 )
+
+func newReverseProxy(upstreamURL *url.URL, lc *local.Client, authHeaders bool) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(upstreamURL)
+			pr.Out.Host = pr.In.Host
+			pr.SetXForwarded()
+			if !authHeaders {
+				return
+			}
+			whois, err := lc.WhoIs(pr.In.Context(), pr.In.RemoteAddr)
+			if err == nil {
+				pr.Out.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
+				pr.Out.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
+				pr.Out.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
+				slog.Debug("Authing", "user", whois.UserProfile.LoginName)
+			}
+		},
+	}
+}
 
 func main() {
 	envflag.Parse()
@@ -81,21 +102,7 @@ func main() {
 		_ = listener.Close()
 	}(listener)
 
-	reverseProxy := httputil.NewSingleHostReverseProxy(upstreamURL)
-
-	if *authHeaders {
-		d := reverseProxy.Director
-		reverseProxy.Director = func(r *http.Request) {
-			d(r)
-			whois, err := lc.WhoIs(r.Context(), r.RemoteAddr)
-			if err == nil {
-				r.Header.Set("Tailscale-User-Login", whois.UserProfile.LoginName)
-				r.Header.Set("Tailscale-User-Name", whois.UserProfile.DisplayName)
-				r.Header.Set("Tailscale-User-Profile-Pic", whois.UserProfile.ProfilePicURL)
-				slog.Debug("Authing", "user", whois.UserProfile.LoginName)
-			}
-		}
-	}
+	reverseProxy := newReverseProxy(upstreamURL, lc, *authHeaders)
 
 	slog.Info("Listening for incoming connections", "hostname", *tailscaleHost, "port", *tailscalePort)
 
