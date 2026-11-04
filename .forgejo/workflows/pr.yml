@@ -10,3 +10,5 @@ jobs:
       - uses: actions/toolkit/git-checkout@master
       - uses: actions/toolkit/go-test@master
       - uses: actions/toolkit/docker-build@master
+        with:
+          platforms: linux/amd64,linux/arm64
