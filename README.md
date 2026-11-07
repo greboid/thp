@@ -14,10 +14,11 @@ This project was heavily inspired by [tsp](https://github.com/csmith/tsp) and I 
 | `--tailscale-config-dir` | `TAILSCALE_CONFIG_DIR` | `config`   | Path to store Tailscale configuration                                                         |
 | `--tailscale-auth-key`   | `TAILSCALE_AUTH_KEY`   | (empty)    | Tailscale auth key for connecting to the network. If blank, interactive auth will be required |
 | `--upstream`             | `UPSTREAM`             | (required) | URL of the upstream service to proxy HTTP requests to (e.g., `http://localhost:8080`)         |
+| `--upstream-timeout`     | `UPSTREAM_TIMEOUT`     | `60s`      | How long to wait for the upstream to start responding before failing the request (`0` = wait forever) |
 | `--ssl`                  | `SSL`                  | `true`     | Whether to enable Tailscale SSL                                                               |
 | `--authheaders`          | `AUTHHEADERS`          | `true`     | Whether to add Tailscale auth headers                                                         |
-| `--redirect`             | `REDIRECT`             | `false`    | Whether to redirect plain HTTP requests to HTTPS                                              |
-| `--redirect-port`        | `REDIRECT_PORT`        | `80`       | The port to listen on for plain HTTP requests if `redirect` is true                           |                                                 
+| `--redirect`             | `REDIRECT`             | `false`    | Whether to redirect plain HTTP requests to the proxy (HTTPS unless `ssl` is false)            |
+| `--redirect-port`        | `REDIRECT_PORT`        | `80`       | The port to listen on for plain HTTP requests if `redirect` is true                           |
 
 ## Authentication Headers
 
@@ -26,6 +27,15 @@ When `--authheaders` is enabled, TSP will add the following headers to proxied r
 - `Tailscale-User-Login`: User's login name
 - `Tailscale-User-Name`: User's display name  
 - `Tailscale-User-Profile-Pic`: URL to user's profile picture
+
+Any `Tailscale-User-*` headers sent by the client are always removed, including variants
+using underscores or different case (e.g. `Tailscale_User_Login`), whether or not
+`--authheaders` is enabled, so they cannot be forged.
+
+The headers are only added when the request comes from a device owned by a user. Requests
+from tagged devices, from the public internet via Funnel, or whose identity cannot be
+resolved are proxied without them, so upstreams should treat a missing header as
+"not authenticated".
 
 ## Example Usage
 
@@ -44,7 +54,7 @@ services:
   thp:
     image: ghcr.io/greboid/thp:latest
     environment:
-      - UPSTREAM=http://app:8080
+      - UPSTREAM=http://app:80
       - TAILSCALE_HOSTNAME=myapp
       - TAILSCALE_AUTH_KEY=tskey-auth-xxxxx
     volumes:
@@ -55,7 +65,5 @@ services:
   app:
     image: nginx:alpine
     container_name: app
-    ports:
-      - "8080:80"
     restart: unless-stopped
 ```
