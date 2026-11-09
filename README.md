@@ -15,6 +15,7 @@ This project was heavily inspired by [tsp](https://github.com/csmith/tsp) and I 
 | `--tailscale-auth-key`   | `TAILSCALE_AUTH_KEY`   | (empty)    | Tailscale auth key for connecting to the network. If blank, interactive auth will be required |
 | `--upstream`             | `UPSTREAM`             | (required) | URL of the upstream service to proxy HTTP requests to (e.g., `http://localhost:8080`)         |
 | `--upstream-timeout`     | `UPSTREAM_TIMEOUT`     | `60s`      | How long to wait for the upstream to start responding before failing the request (`0` = wait forever) |
+| `--use-upstream-host`    | `USE_UPSTREAM_HOST`    | `false`    | Send the upstream's host as the `Host` header instead of the host the client requested. The client's host is still sent in `X-Forwarded-Host` |
 | `--ssl`                  | `SSL`                  | `true`     | Whether to enable Tailscale SSL                                                               |
 | `--authheaders`          | `AUTHHEADERS`          | `true`     | Whether to add Tailscale auth headers                                                         |
 | `--redirect`             | `REDIRECT`             | `false`    | Whether to redirect plain HTTP requests to the proxy (HTTPS unless `ssl` is false)            |

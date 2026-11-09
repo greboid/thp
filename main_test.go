@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,7 @@ func newWhoisClientFor(t *testing.T, resp *apitype.WhoIsResponse) *local.Client 
 
 func newTestHandler(t *testing.T, lc *local.Client, authHeaders bool, upstreamURL *url.URL) http.Handler {
 	t.Helper()
-	return identityMiddleware(lc, authHeaders, newReverseProxy(upstreamURL, time.Minute))
+	return identityMiddleware(lc, authHeaders, newReverseProxy(upstreamURL, time.Minute, false))
 }
 
 func TestForgedIdentityHeadersNeverForwarded(t *testing.T) {
@@ -257,6 +258,105 @@ func TestRedirectHandlerUnavailableUntilTargetKnown(t *testing.T) {
 	}
 }
 
+func TestUpstreamHostHeader(t *testing.T) {
+	const clientHost = "proxy.example"
+
+	var gotHost, gotForwardedHost string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		gotForwardedHost = r.Header.Get("X-Forwarded-Host")
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name            string
+		useUpstreamHost bool
+		wantHost        string
+	}{
+		{"client host by default", false, clientHost},
+		{"upstream host when enabled", true, upstreamURL.Host},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := newReverseProxy(upstreamURL, time.Minute, tt.useUpstreamHost)
+			rec := httptest.NewRecorder()
+			proxy.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://"+clientHost+"/", nil))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("unexpected status %d", rec.Code)
+			}
+			if gotHost != tt.wantHost {
+				t.Errorf("Host = %q, want %q", gotHost, tt.wantHost)
+			}
+			if gotForwardedHost != clientHost {
+				t.Errorf("X-Forwarded-Host = %q, want %q", gotForwardedHost, clientHost)
+			}
+		})
+	}
+}
+
+func TestForwardedHeaders(t *testing.T) {
+	var got http.Header
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := newReverseProxy(upstreamURL, time.Minute, false)
+
+	tests := []struct {
+		name      string
+		tls       bool
+		forged    bool
+		wantProto string
+	}{
+		{name: "plain http", wantProto: "http"},
+		{name: "tls", tls: true, wantProto: "https"},
+		{name: "forged values replaced on http", forged: true, wantProto: "http"},
+		{name: "forged values replaced on tls", tls: true, forged: true, wantProto: "https"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got = nil
+			req := httptest.NewRequest(http.MethodGet, "http://proxy.example/", nil)
+			req.RemoteAddr = "192.0.2.1:1234"
+			if tt.tls {
+				req.TLS = &tls.ConnectionState{}
+			}
+			if tt.forged {
+				req.Header.Set("X-Forwarded-For", "203.0.113.9")
+				req.Header.Set("X-Forwarded-Host", "forged.example")
+				req.Header.Set("X-Forwarded-Proto", "forged")
+				req.Header.Set("Forwarded", "for=203.0.113.9")
+			}
+
+			rec := httptest.NewRecorder()
+			proxy.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("unexpected status %d", rec.Code)
+			}
+
+			want := map[string]string{
+				"X-Forwarded-For":   "192.0.2.1",
+				"X-Forwarded-Host":  "proxy.example",
+				"X-Forwarded-Proto": tt.wantProto,
+				"Forwarded":         "",
+			}
+			for name, value := range want {
+				if actual := got.Get(name); actual != value {
+					t.Errorf("%s = %q, want %q", name, actual, value)
+				}
+			}
+		})
+	}
+}
+
 func TestUpstreamResponseTimeout(t *testing.T) {
 	release := make(chan struct{})
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +373,7 @@ func TestUpstreamResponseTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proxy := newReverseProxy(upstreamURL, 100*time.Millisecond)
+	proxy := newReverseProxy(upstreamURL, 100*time.Millisecond, false)
 
 	rec := httptest.NewRecorder()
 	start := time.Now()

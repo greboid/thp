@@ -30,6 +30,7 @@ var (
 	tailscaleAuthKey   = flag.String("tailscale-auth-key", "", "tailscale auth key for connecting to the network. If blank, interactive auth will be required")
 	upstream           = flag.String("upstream", "", "URL of the upstream service to proxy HTTP requests to (e.g., http://localhost:8080)")
 	upstreamTimeout    = flag.Duration("upstream-timeout", 60*time.Second, "How long to wait for the upstream to start responding before failing the request (0 to wait forever)")
+	useUpstreamHost    = flag.Bool("use-upstream-host", false, "Whether to send the upstream's host as the Host header instead of the host the client requested")
 	useSSL             = flag.Bool("ssl", true, "Whether to enable tailscale SSL")
 	funnel             = flag.Bool("funnel", false, "Whether to expose the service using funnel")
 	authHeaders        = flag.Bool("authheaders", true, "Whether to add Tailscale auth headers")
@@ -64,14 +65,16 @@ func parseUpstream(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-func newReverseProxy(upstreamURL *url.URL, responseHeaderTimeout time.Duration) *httputil.ReverseProxy {
+func newReverseProxy(upstreamURL *url.URL, responseHeaderTimeout time.Duration, useUpstreamHost bool) *httputil.ReverseProxy {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.ResponseHeaderTimeout = responseHeaderTimeout
 	return &httputil.ReverseProxy{
 		Transport: transport,
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(upstreamURL)
-			pr.Out.Host = pr.In.Host
+			if !useUpstreamHost {
+				pr.Out.Host = pr.In.Host
+			}
 			pr.SetXForwarded()
 		},
 	}
@@ -211,7 +214,7 @@ func run() error {
 		}
 	}
 
-	proxyServer := newHTTPServer(identityMiddleware(lc, *authHeaders, newReverseProxy(upstreamURL, *upstreamTimeout)), 0)
+	proxyServer := newHTTPServer(identityMiddleware(lc, *authHeaders, newReverseProxy(upstreamURL, *upstreamTimeout, *useUpstreamHost)), 0)
 	servers := []*http.Server{proxyServer}
 	slog.Info("Listening for incoming connections", "hostname", *tailscaleHost, "port", *tailscalePort)
 	go serve("proxy", proxyServer, listener)
