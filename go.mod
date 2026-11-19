@@ -1,11 +1,11 @@
 module github.com/greboid/thp
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/csmith/envflag/v2 v2.0.0
 	github.com/csmith/slogflags v1.2.0
-	tailscale.com v1.104.6
+	tailscale.com v1.104.7
 )
 
 require (
